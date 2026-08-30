@@ -15,13 +15,22 @@ struct PlayerBar: View {
                 .fill(Color.loomDivider)
                 .frame(height: 1)
 
-            HStack(spacing: 24) {
+            HStack(spacing: 16) {
                 nowPlaying
+                    .layoutPriority(1)
+
+                Spacer(minLength: 12)
+
                 transport
+
+                Spacer(minLength: 12)
+
                 volumeAndActions
+                    .layoutPriority(1)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
+            .frame(height: 84)
         }
         .background(Color.loomSurface)
     }
@@ -36,12 +45,15 @@ struct PlayerBar: View {
                 Text("Not Playing")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
                 Text("Select a song to begin")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.loomTextSecondary)
+                    .lineLimit(1)
             }
         }
-        .frame(width: 240, alignment: .leading)
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(minWidth: 180, alignment: .leading)
     }
 
     private var transport: some View {
@@ -58,28 +70,33 @@ struct PlayerBar: View {
                     .foregroundStyle(Color.loomTextSecondary)
             }
             .font(.system(size: 13))
+            .fixedSize(horizontal: true, vertical: true)
 
             HStack(spacing: 10) {
                 Text("0:00")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.loomTextSecondary)
+                    .fixedSize()
                 Slider(value: $progress, in: 0...1)
                     .controlSize(.small)
                 Text("0:00")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.loomTextSecondary)
+                    .fixedSize()
             }
+            .frame(minWidth: 220)
         }
-        .frame(maxWidth: 480)
+        .frame(minWidth: 260, maxWidth: 420)
     }
 
     private var volumeAndActions: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 14) {
             Image(systemName: "speaker.wave.2.fill")
                 .foregroundStyle(Color.loomTextSecondary)
+                .fixedSize()
             Slider(value: $volume, in: 0...1)
                 .controlSize(.small)
-                .frame(width: 110)
+                .frame(width: 90)
 
             Button(action: {}) {
                 HStack(spacing: 6) {
@@ -95,10 +112,12 @@ struct PlayerBar: View {
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)
+            .fixedSize()
 
             IconButton(symbolName: "sun.max")
         }
-        .frame(width: 240, alignment: .trailing)
+        .fixedSize(horizontal: true, vertical: false)
+        .frame(minWidth: 200, alignment: .trailing)
     }
 }
 

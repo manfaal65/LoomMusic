@@ -6,7 +6,9 @@
 import SwiftUI
 
 struct SearchBar: View {
-    @State private var query: String = ""
+    @Binding var query: String
+    var onSubmit: () -> Void = {}
+    var onClear: () -> Void = {}
 
     var body: some View {
         HStack(spacing: 12) {
@@ -17,8 +19,17 @@ struct SearchBar: View {
                 .textFieldStyle(.plain)
                 .foregroundStyle(.white)
                 .font(.system(size: 14))
+                .onSubmit(onSubmit)
 
-            Button(action: submit) {
+            if !query.isEmpty {
+                Button(action: onClear) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.loomTextSecondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button(action: onSubmit) {
                 Text("Enter")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
@@ -28,6 +39,7 @@ struct SearchBar: View {
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small))
             }
             .buttonStyle(.plain)
+            .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -38,14 +50,10 @@ struct SearchBar: View {
                 .stroke(Color.loomDivider, lineWidth: 1)
         )
     }
-
-    private func submit() {
-        // No search backend yet.
-    }
 }
 
 #Preview {
-    SearchBar()
+    SearchBar(query: .constant(""))
         .padding()
         .background(Color.loomBackground)
 }
