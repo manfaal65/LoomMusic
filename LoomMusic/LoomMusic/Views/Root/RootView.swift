@@ -11,7 +11,7 @@ struct RootView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HeaderBar(selectedTab: $selectedTab, onUpgradeTap: { showPaywall = true })
+            HeaderBar(selectedTab: $selectedTab)
 
             switch selectedTab {
             case .home:
@@ -22,8 +22,8 @@ struct RootView: View {
                 AILyricsGeneratorView()
             case .aiSongSummary:
                 AISongSummaryView()
-            default:
-                PlaceholderScreen(tab: selectedTab)
+            case .upload:
+                UploadView()
             }
 
             PlayerBar(onPremiumTap: { showPaywall = true })
