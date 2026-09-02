@@ -7,6 +7,7 @@ import SwiftUI
 
 struct HeaderBar: View {
     @Binding var selectedTab: NavTab
+    var onUpgradeTap: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,7 +25,7 @@ struct HeaderBar: View {
                 Spacer()
 
                 HStack(spacing: 16) {
-                    UpgradeButton()
+                    UpgradeButton(action: onUpgradeTap)
                     IconButton(symbolName: "gearshape")
                     IconButton(symbolName: "person.crop.circle")
                 }

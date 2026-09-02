@@ -6,7 +6,13 @@
 import SwiftUI
 
 extension Song {
-    static let sample: [Song] = [
+    // Dummy sample songs removed — real song data will be wired in separately.
+    // The original 10 sample entries are kept below, disabled, in case they're
+    // still useful as reference/fallback data later.
+    static let sample: [Song] = []
+
+    #if false
+    static let sampleArchive: [Song] = [
         Song(
             title: "Glass Horizon",
             artist: "Nova Reyes",
@@ -138,4 +144,5 @@ extension Song {
             info: SongInfo(album: "The Quiet Parade", year: "2021", genre: "Synth-Pop", duration: "3:53", writer: "L. Voss", producer: "L. Voss", label: "Quiet Parade Records")
         )
     ]
+    #endif
 }

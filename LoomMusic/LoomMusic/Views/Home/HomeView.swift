@@ -23,9 +23,16 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    RecentSection(tracks: history.entries.map(\.asRecentTrack)) { track in
-                        activeRequest = track.historyEntry?.request
-                    }
+                    RecentSection(
+                        tracks: history.entries.map(\.asRecentTrack),
+                        onSelect: { track in
+                            activeRequest = track.historyEntry?.request
+                        },
+                        onDelete: { track in
+                            guard let id = track.historyEntry?.id else { return }
+                            history.remove(id: id)
+                        }
+                    )
                     .padding(Theme.contentPadding)
                 }
             }

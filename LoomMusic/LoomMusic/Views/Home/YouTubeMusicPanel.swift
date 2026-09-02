@@ -36,13 +36,19 @@ struct YouTubeMusicPanel: View {
                 .fill(Color.loomDivider)
                 .frame(height: 1)
 
-            YouTubeMusicWebView(request: request) { videoId, title in
-                PlaybackHistoryStore.shared.recordPlayed(
-                    videoId: videoId,
-                    title: title,
-                    thumbnailURL: URL(string: "https://i.ytimg.com/vi/\(videoId)/hqdefault.jpg")
-                )
-            }
+            YouTubeMusicWebView(
+                request: request,
+                onVideoOpened: { videoId, title in
+                    PlaybackHistoryStore.shared.recordPlayed(
+                        videoId: videoId,
+                        title: title,
+                        thumbnailURL: URL(string: "https://i.ytimg.com/vi/\(videoId)/hqdefault.jpg")
+                    )
+                },
+                onSearchThumbnail: { query, thumbnailURL in
+                    PlaybackHistoryStore.shared.updateSearchThumbnail(query: query, thumbnailURL: thumbnailURL)
+                }
+            )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color.loomBackground)

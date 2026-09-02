@@ -8,6 +8,7 @@ import SwiftUI
 struct RecentCard: View {
     let track: RecentTrack
     var onSelect: () -> Void = {}
+    var onDelete: () -> Void = {}
 
     var body: some View {
         Button(action: onSelect) {
@@ -37,6 +38,10 @@ struct RecentCard: View {
                 }
                 .aspectRatio(16 / 10, contentMode: .fill)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.card))
+                .overlay(alignment: .topTrailing) {
+                    deleteButton
+                        .padding(8)
+                }
 
                 Text(track.caption)
                     .font(.system(size: 13))
@@ -46,6 +51,18 @@ struct RecentCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
+    }
+
+    private var deleteButton: some View {
+        Button(action: onDelete) {
+            Image(systemName: "xmark")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Color.black.opacity(0.55)))
+        }
+        .buttonStyle(.plain)
+        .help("Remove from Recent")
     }
 
     @ViewBuilder
@@ -59,16 +76,28 @@ struct RecentCard: View {
                     .foregroundStyle(.white.opacity(0.25))
             }
         case let .remote(url):
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case let .success(image):
-                    image.resizable().scaledToFill()
-                default:
-                    ZStack {
-                        Color.loomSurface
-                        Image(systemName: "music.note")
-                            .font(.system(size: 34))
-                            .foregroundStyle(.white.opacity(0.25))
+            // AsyncImage's resizable image has no intrinsic frame of its own, so without
+            // clamping it to the card's actual measured size here, its native pixel
+            // dimensions leak upward as the ZStack's "ideal" size — combined with
+            // .aspectRatio(contentMode: .fill) on the outer ZStack (which is allowed to
+            // overflow its proposed size by design), the card balloons to roughly the
+            // image's real resolution and the oversized result looks pixelated.
+            GeometryReader { proxy in
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case let .success(image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .clipped()
+                    default:
+                        ZStack {
+                            Color.loomSurface
+                            Image(systemName: "music.note")
+                                .font(.system(size: 34))
+                                .foregroundStyle(.white.opacity(0.25))
+                        }
                     }
                 }
             }

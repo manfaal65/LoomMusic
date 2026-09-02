@@ -58,7 +58,9 @@ struct SongDetailPane: View {
                 }
             }
             .padding(Theme.Spacing.large)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loomBackground)
     }
 }

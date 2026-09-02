@@ -8,6 +8,7 @@ import SwiftUI
 struct RecentSection: View {
     var tracks: [RecentTrack] = RecentTrack.sample
     var onSelect: (RecentTrack) -> Void = { _ in }
+    var onDelete: (RecentTrack) -> Void = { _ in }
 
     private let columns = [GridItem(.adaptive(minimum: 264, maximum: 320), spacing: Theme.Spacing.large)]
 
@@ -24,9 +25,11 @@ struct RecentSection: View {
             } else {
                 LazyVGrid(columns: columns, spacing: Theme.Spacing.large) {
                     ForEach(tracks) { track in
-                        RecentCard(track: track) {
-                            onSelect(track)
-                        }
+                        RecentCard(
+                            track: track,
+                            onSelect: { onSelect(track) },
+                            onDelete: { onDelete(track) }
+                        )
                     }
                 }
             }

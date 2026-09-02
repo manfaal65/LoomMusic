@@ -15,6 +15,7 @@ struct LyricsContentView: View {
                     .font(.system(size: 16))
                     .foregroundStyle(.white)
                     .lineSpacing(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }

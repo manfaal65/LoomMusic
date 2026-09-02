@@ -6,8 +6,16 @@
 import SwiftUI
 
 struct PlayerBar: View {
+    @ObservedObject private var player = PlaybackController.shared
+    var onPremiumTap: () -> Void = {}
     @State private var volume: Double = 0.6
-    @State private var progress: Double = 0
+    @State private var isScrubbing = false
+    @State private var scrubProgress: Double = 0
+
+    private var progress: Double {
+        guard player.duration > 0 else { return 0 }
+        return player.currentTime / player.duration
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,16 +45,26 @@ struct PlayerBar: View {
 
     private var nowPlaying: some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: Theme.Radius.small)
-                .fill(Color.black.opacity(0.3))
-                .frame(width: 48, height: 48)
+            ZStack {
+                RoundedRectangle(cornerRadius: Theme.Radius.small)
+                    .fill(Color.black.opacity(0.3))
+                if let artworkURL = player.artworkURL {
+                    AsyncImage(url: artworkURL) { phase in
+                        if case let .success(image) = phase {
+                            image.resizable().scaledToFill()
+                        }
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small))
+                }
+            }
+            .frame(width: 48, height: 48)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Not Playing")
+                Text(player.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-                Text("Select a song to begin")
+                Text(player.artist)
                     .font(.system(size: 12))
                     .foregroundStyle(Color.loomTextSecondary)
                     .lineLimit(1)
@@ -59,27 +77,57 @@ struct PlayerBar: View {
     private var transport: some View {
         VStack(spacing: 8) {
             HStack(spacing: 20) {
-                Image(systemName: "backward.end.fill")
-                    .foregroundStyle(Color.loomTextSecondary)
-                Image(systemName: "play.fill")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.black)
-                    .frame(width: 28, height: 28)
-                    .background(Circle().fill(.white))
-                Image(systemName: "forward.end.fill")
-                    .foregroundStyle(Color.loomTextSecondary)
+                Button(action: player.skipPrevious) {
+                    Image(systemName: "backward.end.fill")
+                        .foregroundStyle(player.isConnected ? Color.loomTextSecondary : Color.loomTextSecondary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+                .disabled(!player.isConnected)
+
+                Button(action: player.togglePlayPause) {
+                    Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.black)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(.white.opacity(player.isConnected ? 1 : 0.5)))
+                }
+                .buttonStyle(.plain)
+                .disabled(!player.isConnected)
+
+                Button(action: player.skipNext) {
+                    Image(systemName: "forward.end.fill")
+                        .foregroundStyle(player.isConnected ? Color.loomTextSecondary : Color.loomTextSecondary.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+                .disabled(!player.isConnected)
             }
             .font(.system(size: 13))
             .fixedSize(horizontal: true, vertical: true)
 
             HStack(spacing: 10) {
-                Text("0:00")
+                Text(Self.formatTime(player.currentTime))
                     .font(.system(size: 11))
                     .foregroundStyle(Color.loomTextSecondary)
                     .fixedSize()
-                Slider(value: $progress, in: 0...1)
-                    .controlSize(.small)
-                Text("0:00")
+                Slider(
+                    value: Binding(
+                        get: { isScrubbing ? scrubProgress : progress },
+                        set: { newValue in
+                            isScrubbing = true
+                            scrubProgress = newValue
+                        }
+                    ),
+                    in: 0...1,
+                    onEditingChanged: { editing in
+                        if !editing {
+                            player.seek(toFraction: scrubProgress)
+                            isScrubbing = false
+                        }
+                    }
+                )
+                .controlSize(.small)
+                .disabled(!player.isConnected)
+                Text(Self.formatTime(player.duration))
                     .font(.system(size: 11))
                     .foregroundStyle(Color.loomTextSecondary)
                     .fixedSize()
@@ -98,7 +146,7 @@ struct PlayerBar: View {
                 .controlSize(.small)
                 .frame(width: 90)
 
-            Button(action: {}) {
+            Button(action: onPremiumTap) {
                 HStack(spacing: 6) {
                     Image(systemName: "headphones")
                         .font(.system(size: 12, weight: .semibold))
@@ -118,6 +166,12 @@ struct PlayerBar: View {
         }
         .fixedSize(horizontal: true, vertical: false)
         .frame(minWidth: 200, alignment: .trailing)
+    }
+
+    private static func formatTime(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
+        let total = Int(seconds)
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 }
 

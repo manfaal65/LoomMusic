@@ -7,17 +7,17 @@ import SwiftUI
 
 struct HistoryEntry: Codable, Identifiable, Equatable {
     enum Kind: Codable, Equatable {
-        case searched(query: String)
+        case searched(query: String, thumbnailURL: URL? = nil)
         case played(videoId: String, title: String, thumbnailURL: URL?)
     }
 
     let id: String
-    let kind: Kind
+    var kind: Kind
     var timestamp: Date
 
     var displayTitle: String {
         switch kind {
-        case let .searched(query):
+        case let .searched(query, _):
             return query
         case let .played(_, title, _):
             return title
@@ -34,15 +34,17 @@ struct HistoryEntry: Codable, Identifiable, Equatable {
     }
 
     var thumbnailURL: URL? {
-        if case let .played(_, _, url) = kind {
+        switch kind {
+        case let .searched(_, url):
+            return url
+        case let .played(_, _, url):
             return url
         }
-        return nil
     }
 
     var request: YouTubeMusicRequest {
         switch kind {
-        case let .searched(query):
+        case let .searched(query, _):
             return .search(query)
         case let .played(videoId, _, _):
             return .watch(videoId: videoId)
