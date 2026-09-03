@@ -13,7 +13,7 @@ struct HeaderBar: View {
             HStack(spacing: 0) {
                 Spacer().frame(width: Theme.trafficLightInset)
 
-                Text("LoomMusic")
+                Text("YuTunes")
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(.white)
 

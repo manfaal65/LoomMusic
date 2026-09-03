@@ -16,7 +16,10 @@ struct AILyricsGeneratorView: View {
     @State private var errorMessage: String?
     @State private var generationTask: Task<Void, Never>?
     @State private var showHistoryPopover = false
+    @State private var showPaywall = false
     @ObservedObject private var chatHistory = ChatHistoryStore.shared
+    @ObservedObject private var usage = UsageLimitStore.shared
+    @ObservedObject private var store = StoreKitService.shared
     @FocusState private var isComposerFocused: Bool
 
     var body: some View {
@@ -66,6 +69,13 @@ struct AILyricsGeneratorView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loomBackground)
         .onAppear { isComposerFocused = true }
+        .sheet(isPresented: $showPaywall) { PaywallView() }
+    }
+
+    private var subtitle: String {
+        guard !store.isPremiumActive else { return "Powered by Gemini" }
+        let remaining = usage.remaining(.lyricsGeneration)
+        return remaining > 0 ? "Powered by Gemini · \(remaining) free left" : "Powered by Gemini · Free limit reached"
     }
 
     private var header: some View {
@@ -74,7 +84,7 @@ struct AILyricsGeneratorView: View {
                 Text("AI Lyrics Generator")
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(.white)
-                Text("Powered by Gemini")
+                Text(subtitle)
                     .font(.system(size: 12))
                     .foregroundStyle(Color.loomTextSecondary)
             }
@@ -265,6 +275,11 @@ struct AILyricsGeneratorView: View {
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isGenerating else { return }
 
+        guard usage.canUse(.lyricsGeneration) else {
+            showPaywall = true
+            return
+        }
+
         messages.append(ChatMessage(role: .user, text: trimmed))
         inputText = ""
         errorMessage = nil
@@ -278,6 +293,7 @@ struct AILyricsGeneratorView: View {
                 guard !Task.isCancelled else { return }
                 messages.append(ChatMessage(role: .assistant, text: reply))
                 chatHistory.save(id: sessionID, messages: messages)
+                usage.recordUse(.lyricsGeneration)
             } catch is CancellationError {
                 // Superseded by a newer send — leave state as-is.
             } catch GeminiServiceError.missingAPIKey {

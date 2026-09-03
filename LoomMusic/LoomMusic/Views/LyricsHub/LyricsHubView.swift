@@ -17,6 +17,8 @@ struct LyricsHubView: View {
     @State private var selectedSong: Song? = Song.sample.first
     @State private var searchState: SongSearchState = .idle
     @State private var searchTask: Task<Void, Never>?
+    @State private var showPaywall = false
+    @ObservedObject private var usage = UsageLimitStore.shared
 
     var body: some View {
         HStack(spacing: 0) {
@@ -37,6 +39,7 @@ struct LyricsHubView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loomBackground)
+        .sheet(isPresented: $showPaywall) { PaywallView() }
     }
 
     private var emptyDetailState: some View {
@@ -58,6 +61,11 @@ struct LyricsHubView: View {
             resetToSample()
             return
         }
+        guard usage.canUse(.search) else {
+            showPaywall = true
+            return
+        }
+        usage.recordUse(.search)
 
         searchTask?.cancel()
         searchState = .loading

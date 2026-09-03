@@ -18,6 +18,7 @@ struct YouTubeMusicWebView: NSViewRepresentable {
 
     private static let bridgeMessageHandlerName = "loomPlayer"
     private static let searchThumbnailMessageHandlerName = "loomSearchThumbnail"
+    private static let debugMessageHandlerName = "loomDebug"
 
     // Best-effort bridge into YouTube Music's own player bar DOM. These selectors
     // (#play-pause-button, .next-button, .previous-button, ytmusic-player-bar's
@@ -105,7 +106,43 @@ struct YouTubeMusicWebView: NSViewRepresentable {
     })();
     """
 
+    // Auto-picks the first playable search result (Spotify-style "just play it"
+    // preview flow) instead of waiting for the user to click a row themselves.
+    // Only injected when opted in — Home's manual browsing panel must never
+    // auto-click a search result out from under the user.
+    private static let autoPlayFirstResultScript = """
+    (function() {
+        if (window.__loomAutoPlayInstalled) { return; }
+        window.__loomAutoPlayInstalled = true;
+        if (location.pathname.indexOf('/search') !== 0) { return; }
+
+        function debug(msg) {
+            try { window.webkit.messageHandlers.\(debugMessageHandlerName).postMessage(String(msg)); } catch (e) {}
+        }
+        debug('autoplay script installed on ' + location.href);
+
+        var attempts = 0;
+        var maxAttempts = 40;
+        var timer = setInterval(function() {
+            attempts++;
+            var item = document.querySelector(
+                'ytmusic-shelf-renderer ytmusic-responsive-list-item-renderer, ytmusic-card-shelf-renderer ytmusic-responsive-list-item-renderer, ytmusic-responsive-list-item-renderer'
+            );
+            if (item) {
+                clearInterval(timer);
+                debug('found item after ' + attempts + ' attempts: ' + item.tagName + ' class=' + item.className);
+                item.click();
+                debug('clicked item, href now ' + location.href);
+            } else if (attempts >= maxAttempts) {
+                clearInterval(timer);
+                debug('gave up after ' + attempts + ' attempts, no item found. body length=' + document.body.innerHTML.length);
+            }
+        }, 500);
+    })();
+    """
+
     let request: YouTubeMusicRequest
+    var autoPlayFirstResult: Bool = false
     var onVideoOpened: (_ videoId: String, _ title: String) -> Void = { _, _ in }
     var onSearchThumbnail: (_ query: String, _ thumbnailURL: URL) -> Void = { _, _ in }
 
@@ -117,15 +154,26 @@ struct YouTubeMusicWebView: NSViewRepresentable {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: Self.bridgeMessageHandlerName)
         contentController.add(context.coordinator, name: Self.searchThumbnailMessageHandlerName)
+        contentController.add(context.coordinator, name: Self.debugMessageHandlerName)
         contentController.addUserScript(
             WKUserScript(source: Self.bridgeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
         contentController.addUserScript(
             WKUserScript(source: Self.searchThumbnailScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         )
+        if autoPlayFirstResult {
+            contentController.addUserScript(
+                WKUserScript(source: Self.autoPlayFirstResultScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            )
+        }
 
         let configuration = WKWebViewConfiguration()
         configuration.userContentController = contentController
+        // The auto-play preview flow clicks the first search result from injected
+        // JS, not a real trusted click — WebKit's autoplay gate doesn't count that
+        // as user activation, so without this the hidden player would load muted
+        // and silent instead of actually playing.
+        configuration.mediaTypesRequiringUserActionForPlayback = []
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.customUserAgent = Self.desktopSafariUserAgent
@@ -150,6 +198,7 @@ struct YouTubeMusicWebView: NSViewRepresentable {
     static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
         webView.configuration.userContentController.removeScriptMessageHandler(forName: bridgeMessageHandlerName)
         webView.configuration.userContentController.removeScriptMessageHandler(forName: searchThumbnailMessageHandlerName)
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: debugMessageHandlerName)
         PlaybackController.shared.detach(webView)
     }
 
@@ -168,6 +217,7 @@ struct YouTubeMusicWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            print("[LoomDebug] didFinish navigation, url = \(webView.url?.absoluteString ?? "nil")")
             guard let url = webView.url, url.path == "/watch" else { return }
             guard let videoId = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first(where: { $0.name == "v" })?.value else { return }
@@ -191,7 +241,19 @@ struct YouTubeMusicWebView: NSViewRepresentable {
             }
         }
 
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            print("[LoomDebug] didFail navigation: \(error)")
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            print("[LoomDebug] didFailProvisionalNavigation: \(error)")
+        }
+
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            if message.name == YouTubeMusicWebView.debugMessageHandlerName {
+                print("[LoomDebug] JS: \(message.body)")
+                return
+            }
             if message.name == YouTubeMusicWebView.searchThumbnailMessageHandlerName {
                 guard let query = loadedRequest?.searchQuery,
                       let urlString = message.body as? String,

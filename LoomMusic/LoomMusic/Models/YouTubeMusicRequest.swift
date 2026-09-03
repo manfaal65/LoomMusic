@@ -5,9 +5,16 @@
 
 import Foundation
 
-enum YouTubeMusicRequest: Equatable, Codable {
+enum YouTubeMusicRequest: Equatable, Codable, Identifiable {
     case search(String)
     case watch(videoId: String)
+
+    var id: String {
+        switch self {
+        case let .search(query): return "search:\(query)"
+        case let .watch(videoId): return "watch:\(videoId)"
+        }
+    }
 
     var searchQuery: String? {
         if case let .search(query) = self { return query }

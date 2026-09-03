@@ -7,8 +7,10 @@ import SwiftUI
 
 struct HomeView: View {
     @ObservedObject private var history = PlaybackHistoryStore.shared
+    @ObservedObject private var usage = UsageLimitStore.shared
     @State private var query: String = ""
     @State private var activeRequest: YouTubeMusicRequest?
+    @State private var showPaywall = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.large * 1.5) {
@@ -38,11 +40,17 @@ struct HomeView: View {
             }
         }
         .background(Color.loomBackground)
+        .sheet(isPresented: $showPaywall) { PaywallView() }
     }
 
     private func performSearch() {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        guard usage.canUse(.search) else {
+            showPaywall = true
+            return
+        }
+        usage.recordUse(.search)
         history.recordSearch(query: trimmed)
         activeRequest = .search(trimmed)
     }

@@ -16,6 +16,9 @@ struct AISongSummaryView: View {
     @State private var trackLink: String = ""
     @State private var state: SongAnalysisState = .idle
     @State private var analysisTask: Task<Void, Never>?
+    @State private var showPaywall = false
+    @ObservedObject private var usage = UsageLimitStore.shared
+    @ObservedObject private var store = StoreKitService.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -41,6 +44,15 @@ struct AISongSummaryView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.loomBackground)
+        .sheet(isPresented: $showPaywall) { PaywallView() }
+    }
+
+    private var subtitle: String {
+        guard !store.isPremiumActive else { return "Paste a link and get key themes, structure, and mood." }
+        let remaining = usage.remaining(.songSummary)
+        return remaining > 0
+            ? "Paste a link and get key themes, structure, and mood. · \(remaining) free left"
+            : "Paste a link and get key themes, structure, and mood. · Free limit reached"
     }
 
     private var analyzeCard: some View {
@@ -54,7 +66,7 @@ struct AISongSummaryView: View {
                 .font(.system(size: 19, weight: .bold))
                 .foregroundStyle(.white)
 
-            Text("Paste a link and get key themes, structure, and mood.")
+            Text(subtitle)
                 .font(.system(size: 13))
                 .foregroundStyle(Color.loomTextSecondary)
                 .multilineTextAlignment(.center)
@@ -73,6 +85,10 @@ struct AISongSummaryView: View {
                         .stroke(Color.loomDivider, lineWidth: 1)
                 )
                 .disabled(isLoading)
+                .onSubmit {
+                    guard !trackLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !isLoading else { return }
+                    analyze()
+                }
 
             Button(action: analyze) {
                 Group {
@@ -242,6 +258,10 @@ struct AISongSummaryView: View {
             state = .failed(message: "Paste a valid YouTube or SoundCloud link.")
             return
         }
+        guard usage.canUse(.songSummary) else {
+            showPaywall = true
+            return
+        }
 
         analysisTask?.cancel()
         state = .loading
@@ -260,6 +280,7 @@ struct AISongSummaryView: View {
                 )
                 guard !Task.isCancelled else { return }
                 state = .result(summary: summary, track: track)
+                usage.recordUse(.songSummary)
             } catch is CancellationError {
                 // Superseded by a newer analysis request — leave state as-is.
             } catch OEmbedServiceError.unsupportedURL {

@@ -7,6 +7,7 @@ import SwiftUI
 
 struct PlayerBar: View {
     @ObservedObject private var player = PlaybackController.shared
+    @ObservedObject private var store = StoreKitService.shared
     var onPremiumTap: () -> Void = {}
     @State private var volume: Double = 0.6
     @State private var isScrubbing = false
@@ -44,7 +45,7 @@ struct PlayerBar: View {
     }
 
     private var nowPlaying: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 30) {
             ZStack {
                 RoundedRectangle(cornerRadius: Theme.Radius.small)
                     .fill(Color.black.opacity(0.3))
@@ -146,21 +147,23 @@ struct PlayerBar: View {
                 .controlSize(.small)
                 .frame(width: 90)
 
-            Button(action: onPremiumTap) {
-                HStack(spacing: 6) {
-                    Image(systemName: "headphones")
-                        .font(.system(size: 12, weight: .semibold))
-                    Text("Premium")
-                        .font(.system(size: 13, weight: .semibold))
+            if !store.isPremiumActive {
+                Button(action: onPremiumTap) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "headphones")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Premium")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Color.loomPremiumGold)
+                    .clipShape(Capsule())
                 }
-                .foregroundStyle(.black)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(Color.loomPremiumGold)
-                .clipShape(Capsule())
+                .buttonStyle(.plain)
+                .fixedSize()
             }
-            .buttonStyle(.plain)
-            .fixedSize()
 
             IconButton(symbolName: "sun.max")
         }

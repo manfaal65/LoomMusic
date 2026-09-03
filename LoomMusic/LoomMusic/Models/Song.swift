@@ -25,6 +25,10 @@ struct Song: Identifiable {
     let artColors: [Color]
     let lyrics: [String]
     let info: SongInfo
+    /// Line-by-line timestamped lyrics for Spotify-style highlighting, when the
+    /// source track had an LRCLIB `syncedLyrics` payload. Empty for sample songs
+    /// and tracks LRCLIB only has plain lyrics for.
+    let syncedLines: [LyricLine]
 }
 
 extension Song {
@@ -52,7 +56,8 @@ extension Song {
             genre: "—",
             artColors: Self.placeholderPalette[abs(track.artistName.hashValue) % Self.placeholderPalette.count],
             lyrics: Self.paragraphs(from: track.plainLyrics, instrumental: track.instrumental ?? false),
-            info: SongInfo(album: album, year: "—", genre: "—", duration: durationText, writer: "—", producer: "—", label: "—")
+            info: SongInfo(album: album, year: "—", genre: "—", duration: durationText, writer: "—", producer: "—", label: "—"),
+            syncedLines: track.syncedLyrics.map(LRCParser.parse) ?? []
         )
     }
 
