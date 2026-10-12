@@ -29,7 +29,7 @@ struct HistoryEntry: Codable, Identifiable, Equatable {
         case .searched:
             return "Searched"
         case .played:
-            return "Played on YouTube Music"
+            return "Played on Music Player"
         }
     }
 

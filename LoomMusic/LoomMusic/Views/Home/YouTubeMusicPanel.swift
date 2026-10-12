@@ -12,7 +12,7 @@ struct YouTubeMusicPanel: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("YouTube Music")
+                Text("Music Player")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
 
