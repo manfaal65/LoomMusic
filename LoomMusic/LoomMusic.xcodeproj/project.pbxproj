@@ -299,7 +299,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.loommusic-for-mac.LoomMusic";
+				PRODUCT_BUNDLE_IDENTIFIER = com.loom.music.app;
 				PRODUCT_NAME = YuTUNES;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -335,7 +335,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.loommusic-for-mac.LoomMusic";
+				PRODUCT_BUNDLE_IDENTIFIER = com.loom.music.app;
 				PRODUCT_NAME = YuTUNES;
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
