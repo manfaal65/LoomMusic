@@ -8,15 +8,25 @@ import SwiftUI
 struct SongDetailPane: View {
     let song: Song
     @State private var selectedTab: SongDetailTab = .lyrics
-    @State private var previewRequest: YouTubeMusicRequest?
-    @State private var hasStartedPlaying = false
     @State private var syncOffset: TimeInterval = 0
     @ObservedObject private var player = PlaybackController.shared
+    @ObservedObject private var uploadedStore = UploadedTracksStore.shared
 
-    private var isPreviewing: Bool { previewRequest != nil }
+    private var matchingLocalTrack: UploadedTrack? {
+        let titleLower = song.title.lowercased()
+        return uploadedStore.tracks.first { track in
+            let localLower = track.title.lowercased()
+            return localLower.contains(titleLower) || titleLower.contains(localLower)
+        }
+    }
+
+    private var isPlayingMatchingTrack: Bool {
+        guard let matching = matchingLocalTrack else { return false }
+        return player.isPlaying && player.activeLocalTrackID == matching.id
+    }
 
     private var activeLyricLine: LyricLine? {
-        guard hasStartedPlaying, !song.syncedLines.isEmpty else { return nil }
+        guard player.isPlaying, !song.syncedLines.isEmpty else { return nil }
         let adjustedTime = player.currentTime + syncOffset
         var result: LyricLine?
         for line in song.syncedLines {
@@ -27,8 +37,7 @@ struct SongDetailPane: View {
     }
 
     var body: some View {
-        ZStack {
-            ScrollViewReader { proxy in
+        ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: Theme.Spacing.large) {
                     HStack(alignment: .top, spacing: 20) {
@@ -49,21 +58,36 @@ struct SongDetailPane: View {
                                 .font(.system(size: 13))
                                 .foregroundStyle(Color.loomTextSecondary)
 
-                            Button(action: togglePreview) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: isPreviewing ? "stop.fill" : "play.fill")
-                                        .font(.system(size: 11, weight: .semibold))
-                                    Text(isPreviewing ? "Stop" : "Preview")
-                                        .font(.system(size: 13, weight: .semibold))
+                            if let matchingTrack = matchingLocalTrack {
+                                Button(action: { togglePlayback(for: matchingTrack) }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: isPlayingMatchingTrack ? "pause.fill" : "play.fill")
+                                            .font(.system(size: 11, weight: .semibold))
+                                        Text(isPlayingMatchingTrack ? "Pause" : "Play Audio")
+                                            .font(.system(size: 13, weight: .semibold))
+                                    }
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(Color.loomAccentBlue)
+                                    .clipShape(Capsule())
                                 }
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.loomAccentBlue)
+                                .buttonStyle(.plain)
+                                .padding(.top, 6)
+                            } else if player.isPlaying {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "waveform")
+                                        .font(.system(size: 11, weight: .semibold))
+                                    Text("Synced to Player")
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .foregroundStyle(Color.loomAccentBlue)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.loomAccentBlue.opacity(0.12))
                                 .clipShape(Capsule())
+                                .padding(.top, 6)
                             }
-                            .buttonStyle(.plain)
-                            .padding(.top, 6)
                         }
                     }
 
@@ -71,7 +95,7 @@ struct SongDetailPane: View {
 
                     switch selectedTab {
                     case .lyrics:
-                        if hasStartedPlaying && !song.syncedLines.isEmpty {
+                        if player.isPlaying && !song.syncedLines.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 syncOffsetControl
                                 SyncedLyricsView(lines: song.syncedLines, activeLineID: activeLyricLine?.id)
@@ -94,42 +118,9 @@ struct SongDetailPane: View {
                     proxy.scrollTo(newValue, anchor: .center)
                 }
             }
-            }
-
-            // YouTube Music gates the actual `play()` call behind a genuine
-            // trusted click, separate from WebKit's own autoplay setting — a
-            // script-fired click can navigate the page but won't start audio.
-            // Rather than fight that (a real anti-bot/consent protection), this
-            // panel stays visibly on screen just long enough for one real click
-            // on the actual Play button, then collapses to a near-invisible
-            // sliver the instant the bridge confirms audio is actually playing,
-            // while the *same* web view instance keeps running underneath so
-            // the already-granted playback session is never interrupted.
-            if previewRequest != nil {
-                if !hasStartedPlaying {
-                    Color.black.opacity(0.45)
-                        .ignoresSafeArea()
-                }
-                previewPanel
-                    .frame(
-                        width: hasStartedPlaying ? 2 : 640,
-                        height: hasStartedPlaying ? 2 : 480
-                    )
-                    .opacity(hasStartedPlaying ? 0.01 : 1)
-                    .allowsHitTesting(!hasStartedPlaying)
-            }
-        }
-        .onChange(of: player.isPlaying) { _, isPlaying in
-            guard isPlaying, isPreviewing, !hasStartedPlaying else { return }
-            hasStartedPlaying = true
         }
     }
 
-    // Whatever video the real click actually starts (a music video, a live cut, a
-    // cover) rarely has the exact same intro/timing as the recording LRCLIB's
-    // synced lyrics were timed against, so a fixed offset drifting off is expected
-    // rather than a bug — this manual nudge is the same fix real lyrics apps
-    // (Musixmatch, etc.) use for the same cross-source mismatch.
     private var syncOffsetControl: some View {
         HStack(spacing: 10) {
             Text("Sync")
@@ -163,69 +154,11 @@ struct SongDetailPane: View {
         }
     }
 
-    private var previewPanel: some View {
-        VStack(spacing: 0) {
-            if !hasStartedPlaying {
-                HStack {
-                    Text("Tap a result to play")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                    Spacer()
-                    Button(action: togglePreview) {
-                        HStack(spacing: 4) {
-                            Text("Cancel")
-                            Image(systemName: "xmark")
-                                .font(.system(size: 11, weight: .semibold))
-                        }
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.loomTextSecondary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, Theme.Spacing.large)
-                .padding(.vertical, Theme.Spacing.medium)
-
-                Rectangle()
-                    .fill(Color.loomDivider)
-                    .frame(height: 1)
-            }
-
-            if let previewRequest {
-                YouTubeMusicWebView(
-                    request: previewRequest,
-                    autoPlayFirstResult: true,
-                    onVideoOpened: { videoId, title in
-                        PlaybackHistoryStore.shared.recordPlayed(
-                            videoId: videoId,
-                            title: title,
-                            thumbnailURL: URL(string: "https://i.ytimg.com/vi/\(videoId)/hqdefault.jpg")
-                        )
-                    },
-                    onSearchThumbnail: { query, thumbnailURL in
-                        PlaybackHistoryStore.shared.updateSearchThumbnail(query: query, thumbnailURL: thumbnailURL)
-                    }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-        }
-        .background(Color.loomBackground)
-        .clipShape(RoundedRectangle(cornerRadius: hasStartedPlaying ? 0 : Theme.Radius.card))
-        .overlay(
-            RoundedRectangle(cornerRadius: hasStartedPlaying ? 0 : Theme.Radius.card)
-                .stroke(hasStartedPlaying ? Color.clear : Color.loomDivider, lineWidth: 1)
-        )
-    }
-
-    private func togglePreview() {
-        if isPreviewing {
-            previewRequest = nil
-            hasStartedPlaying = false
+    private func togglePlayback(for track: UploadedTrack) {
+        if isPlayingMatchingTrack {
+            player.togglePlayPause()
         } else {
-            let query = "\(song.title) \(song.artist)"
-            PlaybackHistoryStore.shared.recordSearch(query: query)
-            hasStartedPlaying = false
-            syncOffset = 0
-            previewRequest = .search(query)
+            player.playLocal(track, queue: uploadedStore.tracks)
         }
     }
 }

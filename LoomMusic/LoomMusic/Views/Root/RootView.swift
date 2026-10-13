@@ -8,6 +8,7 @@ import SwiftUI
 struct RootView: View {
     @State private var selectedTab: NavTab = .home
     @State private var showPaywall = false
+    @ObservedObject private var store = StoreKitService.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,6 +33,13 @@ struct RootView: View {
         .frame(minWidth: 900, minHeight: 600)
         .sheet(isPresented: $showPaywall) {
             PaywallView()
+        }
+        .task {
+            // Briefly pause for window initialization and StoreKit entitlement check
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if !store.isPremiumActive {
+                showPaywall = true
+            }
         }
     }
 }

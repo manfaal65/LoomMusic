@@ -14,6 +14,12 @@ enum NavTab: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
+    /// Navigation options displayed in the header tab bar.
+    /// `.upload` is preserved in the codebase but hidden from visible navigation.
+    static var visibleTabs: [NavTab] {
+        allCases.filter { $0 != .upload }
+    }
+
     var symbolName: String {
         switch self {
         case .home: return "house"

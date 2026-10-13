@@ -6,49 +6,31 @@
 import SwiftUI
 
 struct HistoryEntry: Codable, Identifiable, Equatable {
-    enum Kind: Codable, Equatable {
-        case searched(query: String, thumbnailURL: URL? = nil)
-        case played(videoId: String, title: String, thumbnailURL: URL?)
-    }
-
     let id: String
-    var kind: Kind
+    let trackId: UUID
+    let title: String
+    let artist: String?
+    let fileURL: URL
+    let duration: TimeInterval
     var timestamp: Date
 
     var displayTitle: String {
-        switch kind {
-        case let .searched(query, _):
-            return query
-        case let .played(_, title, _):
-            return title
-        }
+        title
     }
 
     var displaySubtitle: String {
-        switch kind {
-        case .searched:
-            return "Searched"
-        case .played:
-            return "Played on Music Player"
-        }
+        artist ?? "Local Audio"
     }
 
-    var thumbnailURL: URL? {
-        switch kind {
-        case let .searched(_, url):
-            return url
-        case let .played(_, _, url):
-            return url
-        }
-    }
-
-    var request: YouTubeMusicRequest {
-        switch kind {
-        case let .searched(query, _):
-            return .search(query)
-        case let .played(videoId, _, _):
-            return .watch(videoId: videoId)
-        }
+    var asUploadedTrack: UploadedTrack {
+        UploadedTrack(
+            id: trackId,
+            title: title,
+            artist: artist,
+            fileURL: fileURL,
+            duration: duration,
+            addedAt: timestamp
+        )
     }
 }
 
@@ -60,18 +42,14 @@ extension HistoryEntry {
     }()
 
     var asRecentTrack: RecentTrack {
-        let thumbnail: Thumbnail
-        if let thumbnailURL {
-            thumbnail = .remote(thumbnailURL)
-        } else {
-            thumbnail = .placeholder(symbolName: "magnifyingglass", gradientColors: [Color.loomAccentBlue, Color.loomAccentEnd])
-        }
-
-        return RecentTrack(
+        RecentTrack(
             title: displayTitle,
             subtitle: displaySubtitle,
             caption: Self.relativeFormatter.localizedString(for: timestamp, relativeTo: Date()),
-            thumbnail: thumbnail,
+            thumbnail: .placeholder(
+                symbolName: "music.note",
+                gradientColors: [Color.loomAccentBlue, Color.loomAccentEnd]
+            ),
             historyEntry: self
         )
     }

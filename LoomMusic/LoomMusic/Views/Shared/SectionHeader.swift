@@ -7,7 +7,7 @@ import SwiftUI
 
 struct SectionHeader: View {
     let title: String
-    let trailingTitle: String
+    var trailingTitle: String? = nil
     var trailingAction: () -> Void = {}
 
     var body: some View {
@@ -18,16 +18,18 @@ struct SectionHeader: View {
 
             Spacer()
 
-            Button(action: trailingAction) {
-                HStack(spacing: 4) {
-                    Text(trailingTitle)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
+            if let trailingTitle, !trailingTitle.isEmpty {
+                Button(action: trailingAction) {
+                    HStack(spacing: 4) {
+                        Text(trailingTitle)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.loomTextSecondary)
                 }
-                .font(.system(size: 13))
-                .foregroundStyle(Color.loomTextSecondary)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
     }
 }

@@ -9,13 +9,19 @@ struct PlayerBar: View {
     @ObservedObject private var player = PlaybackController.shared
     @ObservedObject private var store = StoreKitService.shared
     var onPremiumTap: () -> Void = {}
-    @State private var volume: Double = 0.6
     @State private var isScrubbing = false
     @State private var scrubProgress: Double = 0
 
     private var progress: Double {
         guard player.duration > 0 else { return 0 }
         return player.currentTime / player.duration
+    }
+
+    private var volumeBinding: Binding<Double> {
+        Binding(
+            get: { Double(player.volume) },
+            set: { player.volume = Float($0) }
+        )
     }
 
     var body: some View {
@@ -45,7 +51,7 @@ struct PlayerBar: View {
     }
 
     private var nowPlaying: some View {
-        HStack(spacing: 30) {
+        HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: Theme.Radius.small)
                     .fill(Color.black.opacity(0.3))
@@ -56,6 +62,10 @@ struct PlayerBar: View {
                         }
                     }
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small))
+                } else {
+                    Image(systemName: player.isPlaying ? "waveform" : "music.note")
+                        .font(.system(size: 18))
+                        .foregroundStyle(player.isConnected ? Color.loomAccentBlue : Color.loomTextSecondary)
                 }
             }
             .frame(width: 48, height: 48)
@@ -140,10 +150,10 @@ struct PlayerBar: View {
 
     private var volumeAndActions: some View {
         HStack(spacing: 14) {
-            Image(systemName: "speaker.wave.2.fill")
+            Image(systemName: player.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                 .foregroundStyle(Color.loomTextSecondary)
                 .fixedSize()
-            Slider(value: $volume, in: 0...1)
+            Slider(value: volumeBinding, in: 0...1)
                 .controlSize(.small)
                 .frame(width: 90)
 

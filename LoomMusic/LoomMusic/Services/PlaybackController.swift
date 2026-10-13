@@ -5,13 +5,11 @@
 
 import AVFoundation
 import Combine
-import WebKit
+import Foundation
 
-/// Bridges playback state to the app's bottom PlayerBar from either of two
-/// sources — the embedded YouTube Music WKWebView (via JS injection) or a
-/// locally uploaded audio file (via AVAudioPlayer) — so the same bar/controls
-/// work regardless of where the audio is coming from. Only one source plays
-/// at a time; starting one stops the other.
+/// Central audio playback controller powered by AVFoundation.
+/// Manages playback of user-uploaded local audio files, transport controls,
+/// queue progression, and synchronizes with PlaybackHistoryStore.
 final class PlaybackController: NSObject, ObservableObject, AVAudioPlayerDelegate {
     static let shared = PlaybackController()
 
@@ -23,46 +21,26 @@ final class PlaybackController: NSObject, ObservableObject, AVAudioPlayerDelegat
     @Published private(set) var artist: String = "Select a song to begin"
     @Published private(set) var artworkURL: URL?
     @Published private(set) var activeLocalTrackID: UUID?
-
-    private weak var activeWebView: WKWebView?
+    @Published var volume: Float = 0.8 {
+        didSet {
+            audioPlayer?.volume = volume
+        }
+    }
 
     private var audioPlayer: AVAudioPlayer?
     private var localQueue: [UploadedTrack] = []
     private var localIndex: Int = 0
     private var progressTimer: Timer?
 
-    private override init() {}
-
-    // MARK: - YouTube Music (WebView) source
-
-    func attach(_ webView: WKWebView) {
-        stopLocalPlayback()
-        activeWebView = webView
-        isConnected = true
+    private override init() {
+        super.init()
     }
 
-    func detach(_ webView: WKWebView) {
-        guard activeWebView === webView else { return }
-        activeWebView = nil
-        reset()
-    }
-
-    func updateFromBridge(isPlaying: Bool, currentTime: TimeInterval, duration: TimeInterval, title: String, artist: String, artworkURL: URL?) {
-        guard audioPlayer == nil else { return }
-        self.isPlaying = isPlaying
-        self.currentTime = currentTime
-        self.duration = duration
-        if !title.isEmpty { self.title = title }
-        if !artist.isEmpty { self.artist = artist }
-        if let artworkURL { self.artworkURL = artworkURL }
-    }
-
-    // MARK: - Local (uploaded file) source
+    // MARK: - Playback Commands
 
     func playLocal(_ track: UploadedTrack, queue: [UploadedTrack]) {
-        run("document.querySelector('video')?.pause();")
-        localQueue = queue
-        localIndex = queue.firstIndex(of: track) ?? 0
+        localQueue = queue.isEmpty ? [track] : queue
+        localIndex = localQueue.firstIndex(of: track) ?? 0
         startLocalPlayback(track)
     }
 
@@ -76,6 +54,7 @@ final class PlaybackController: NSObject, ObservableObject, AVAudioPlayerDelegat
 
         guard let player = try? AVAudioPlayer(contentsOf: track.fileURL) else { return }
         player.delegate = self
+        player.volume = volume
         player.play()
         audioPlayer = player
 
@@ -88,6 +67,7 @@ final class PlaybackController: NSObject, ObservableObject, AVAudioPlayerDelegat
         artworkURL = nil
         activeLocalTrackID = track.id
 
+        PlaybackHistoryStore.shared.recordPlayed(track: track)
         startProgressTimer()
     }
 
@@ -129,48 +109,39 @@ final class PlaybackController: NSObject, ObservableObject, AVAudioPlayerDelegat
         }
     }
 
-    // MARK: - Shared transport controls
+    // MARK: - Transport Controls
 
     func togglePlayPause() {
-        if let audioPlayer {
-            if audioPlayer.isPlaying {
-                audioPlayer.pause()
-                isPlaying = false
-                progressTimer?.invalidate()
-            } else {
-                audioPlayer.play()
-                isPlaying = true
-                startProgressTimer()
-            }
+        guard let audioPlayer else { return }
+        if audioPlayer.isPlaying {
+            audioPlayer.pause()
+            isPlaying = false
+            progressTimer?.invalidate()
         } else {
-            run("document.querySelector('#play-pause-button')?.click();")
+            audioPlayer.play()
+            isPlaying = true
+            startProgressTimer()
         }
     }
 
     func skipNext() {
-        if audioPlayer != nil {
-            advanceLocalQueue()
-        } else {
-            run("document.querySelector('.next-button')?.click();")
-        }
+        advanceLocalQueue()
     }
 
     func skipPrevious() {
-        if audioPlayer != nil {
-            retreatLocalQueue()
+        if let audioPlayer, audioPlayer.currentTime > 3.0 {
+            audioPlayer.currentTime = 0
+            currentTime = 0
         } else {
-            run("document.querySelector('.previous-button')?.click();")
+            retreatLocalQueue()
         }
     }
 
     func seek(toFraction fraction: Double) {
         let clamped = max(0, min(1, fraction))
-        if let audioPlayer {
-            audioPlayer.currentTime = audioPlayer.duration * clamped
-            currentTime = audioPlayer.currentTime
-        } else {
-            run("var v = document.querySelector('video'); if (v && isFinite(v.duration)) { v.currentTime = v.duration * \(clamped); }")
-        }
+        guard let audioPlayer else { return }
+        audioPlayer.currentTime = audioPlayer.duration * clamped
+        currentTime = audioPlayer.currentTime
     }
 
     private func reset() {
@@ -185,9 +156,5 @@ final class PlaybackController: NSObject, ObservableObject, AVAudioPlayerDelegat
         artist = "Select a song to begin"
         artworkURL = nil
         activeLocalTrackID = nil
-    }
-
-    private func run(_ script: String) {
-        activeWebView?.evaluateJavaScript(script)
     }
 }

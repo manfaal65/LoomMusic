@@ -10,7 +10,7 @@ struct NavTabBar: View {
 
     var body: some View {
         HStack(spacing: 28) {
-            ForEach(NavTab.allCases) { tab in
+            ForEach(NavTab.visibleTabs) { tab in
                 NavTabButton(tab: tab, isSelected: tab == selectedTab) {
                     selectedTab = tab
                 }

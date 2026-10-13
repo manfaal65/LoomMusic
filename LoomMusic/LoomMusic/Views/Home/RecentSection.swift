@@ -38,10 +38,10 @@ struct RecentSection: View {
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: "clock.arrow.circlepath")
                 .font(.system(size: 24))
                 .foregroundStyle(Color.loomTextSecondary)
-            Text("Search for a song above to see it here")
+            Text("Play a song to see it in your recent history")
                 .font(.system(size: 13))
                 .foregroundStyle(Color.loomTextSecondary)
         }

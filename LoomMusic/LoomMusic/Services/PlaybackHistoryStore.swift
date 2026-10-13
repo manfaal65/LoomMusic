@@ -12,27 +12,23 @@ final class PlaybackHistoryStore: ObservableObject {
     @Published private(set) var entries: [HistoryEntry] = []
 
     private let maxEntries = 24
-    private let storageKey = "loommusic.playbackHistory"
+    private let storageKey = "loommusic.playbackHistory.v2"
 
     private init() {
         load()
     }
 
-    func recordSearch(query: String) {
-        upsert(HistoryEntry(id: query, kind: .searched(query: query), timestamp: Date()))
-    }
-
-    func recordPlayed(videoId: String, title: String, thumbnailURL: URL?) {
-        upsert(HistoryEntry(id: videoId, kind: .played(videoId: videoId, title: title, thumbnailURL: thumbnailURL), timestamp: Date()))
-    }
-
-    /// Fills in a real thumbnail scraped from the embedded search results page for an
-    /// already-recorded search entry, without disturbing its position or timestamp.
-    func updateSearchThumbnail(query: String, thumbnailURL: URL) {
-        guard let index = entries.firstIndex(where: { $0.id == query }) else { return }
-        guard case .searched(let existingQuery, let existingThumbnail) = entries[index].kind, existingThumbnail == nil else { return }
-        entries[index].kind = .searched(query: existingQuery, thumbnailURL: thumbnailURL)
-        save()
+    func recordPlayed(track: UploadedTrack) {
+        let entry = HistoryEntry(
+            id: track.id.uuidString,
+            trackId: track.id,
+            title: track.title,
+            artist: track.artist,
+            fileURL: track.fileURL,
+            duration: track.duration,
+            timestamp: Date()
+        )
+        upsert(entry)
     }
 
     func remove(id: String) {
@@ -40,8 +36,13 @@ final class PlaybackHistoryStore: ObservableObject {
         save()
     }
 
+    func clear() {
+        entries.removeAll()
+        save()
+    }
+
     private func upsert(_ entry: HistoryEntry) {
-        entries.removeAll { $0.id == entry.id }
+        entries.removeAll { $0.trackId == entry.trackId || $0.id == entry.id }
         entries.insert(entry, at: 0)
         if entries.count > maxEntries {
             entries.removeLast(entries.count - maxEntries)
