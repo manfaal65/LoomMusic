@@ -8,11 +8,15 @@ import SwiftUI
 struct RootView: View {
     @State private var selectedTab: NavTab = .home
     @State private var showPaywall = false
+    @State private var showSettings = false
     @ObservedObject private var store = StoreKitService.shared
 
     var body: some View {
         VStack(spacing: 0) {
-            HeaderBar(selectedTab: $selectedTab)
+            HeaderBar(
+                selectedTab: $selectedTab,
+                onSettingsTap: { showSettings = true }
+            )
 
             switch selectedTab {
             case .home:
@@ -34,6 +38,14 @@ struct RootView: View {
         .sheet(isPresented: $showPaywall) {
             PaywallView()
         }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(onOpenPaywall: {
+                showSettings = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showPaywall = true
+                }
+            })
+        }
         .task {
             // Briefly pause for window initialization and StoreKit entitlement check
             try? await Task.sleep(nanoseconds: 350_000_000)
@@ -41,6 +53,11 @@ struct RootView: View {
                 showPaywall = true
             }
         }
+        .background(
+            Button(action: { showSettings = true }) {}
+                .keyboardShortcut(",", modifiers: .command)
+                .opacity(0)
+        )
     }
 }
 

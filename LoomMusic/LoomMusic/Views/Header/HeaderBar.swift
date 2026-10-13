@@ -7,6 +7,7 @@ import SwiftUI
 
 struct HeaderBar: View {
     @Binding var selectedTab: NavTab
+    var onSettingsTap: () -> Void = {}
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,6 +23,9 @@ struct HeaderBar: View {
                 NavTabBar(selectedTab: $selectedTab)
 
                 Spacer()
+
+                IconButton(symbolName: "gearshape", action: onSettingsTap)
+                    .help("Settings (⌘,)")
             }
             .padding(.horizontal, 20)
             .frame(height: Theme.headerHeight)

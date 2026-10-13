@@ -72,7 +72,7 @@ struct AISongSummaryView: View {
                 .multilineTextAlignment(.center)
                 .padding(.bottom, 8)
 
-            TextField("Paste a YouTube or SoundCloud link...", text: $trackLink)
+            TextField("Paste a YouTube/SoundCloud link, or song name...", text: $trackLink)
                 .textFieldStyle(.plain)
                 .foregroundStyle(.white)
                 .font(.system(size: 14))
@@ -254,10 +254,8 @@ struct AISongSummaryView: View {
 
     private func analyze() {
         let trimmed = trackLink.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed) else {
-            state = .failed(message: "Paste a valid YouTube or SoundCloud link.")
-            return
-        }
+        guard !trimmed.isEmpty else { return }
+
         guard usage.canUse(.songSummary) else {
             showPaywall = true
             return
@@ -267,7 +265,30 @@ struct AISongSummaryView: View {
         state = .loading
         analysisTask = Task {
             do {
-                let track = try await OEmbedService.shared.resolve(url: url)
+                let track: OEmbedResult
+                if let url = URL(string: trimmed), let host = url.host?.lowercased(),
+                   host.contains("youtube.com") || host.contains("youtu.be") || host.contains("soundcloud.com") {
+                    track = try await OEmbedService.shared.resolve(url: url)
+                } else if let url = URL(string: trimmed), url.scheme != nil, url.host != nil {
+                    track = try await OEmbedService.shared.resolve(url: url)
+                } else {
+                    // Plain text song title or artist query
+                    let matches = try? await LyricsService.shared.search(query: trimmed)
+                    if let first = matches?.first {
+                        track = OEmbedResult(
+                            title: first.trackName,
+                            authorName: first.artistName,
+                            thumbnailURL: nil
+                        )
+                    } else {
+                        track = OEmbedResult(
+                            title: trimmed,
+                            authorName: nil,
+                            thumbnailURL: nil
+                        )
+                    }
+                }
+
                 guard !Task.isCancelled else { return }
 
                 let lyricsMatches = try? await LyricsService.shared.search(query: track.title)
@@ -284,15 +305,17 @@ struct AISongSummaryView: View {
             } catch is CancellationError {
                 // Superseded by a newer analysis request — leave state as-is.
             } catch OEmbedServiceError.unsupportedURL {
-                state = .failed(message: "Paste a valid YouTube or SoundCloud link.")
+                state = .failed(message: "Paste a valid track link (YouTube, SoundCloud) or enter a song name.")
+            } catch OEmbedServiceError.invalidResponse {
+                state = .failed(message: "Couldn't retrieve track details from that link. Try another link or type the song title directly.")
             } catch GeminiServiceError.missingAPIKey {
-                state = .failed(message: "Couldn't reach the summary service right now. Please try again in a moment.")
+                state = .failed(message: "AI service key is initializing. Please try again in a few moments.")
             } catch GeminiServiceError.serverOverloaded {
                 state = .failed(message: "Gemini is experiencing high demand right now. Please try again in a moment.")
             } catch let GeminiServiceError.blocked(reason) {
-                state = .failed(message: "Gemini couldn't summarize this track (\(reason)). Try a different link.")
+                state = .failed(message: "Gemini couldn't summarize this track (\(reason)). Try a different track.")
             } catch {
-                state = .failed(message: "Couldn't analyze this track. Check your connection and try again.")
+                state = .failed(message: "Couldn't analyze this track. Check your connection or try entering the song title directly.")
             }
         }
     }

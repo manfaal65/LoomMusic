@@ -15,7 +15,7 @@ struct SearchBar: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(Color.loomTextSecondary)
 
-            TextField("Search songs, artists, or paste a link...", text: $query)
+            TextField("Search any added songs or audios", text: $query)
                 .textFieldStyle(.plain)
                 .foregroundStyle(.white)
                 .font(.system(size: 14))

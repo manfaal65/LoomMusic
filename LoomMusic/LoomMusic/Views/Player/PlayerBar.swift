@@ -174,8 +174,6 @@ struct PlayerBar: View {
                 .buttonStyle(.plain)
                 .fixedSize()
             }
-
-            IconButton(symbolName: "sun.max")
         }
         .fixedSize(horizontal: true, vertical: false)
         .frame(minWidth: 200, alignment: .trailing)

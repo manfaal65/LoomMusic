@@ -274,15 +274,23 @@ struct PaywallView: View {
 
     private var footer: some View {
         HStack {
-            Button("Terms of Service") {}
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.loomAccentBlue)
+            Button("Terms of Service") {
+                if let url = URL(string: "https://sites.google.com/view/aamirsohail/terms-of-use") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.loomAccentBlue)
 
             Spacer()
 
-            Button("Privacy Policy") {}
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.loomAccentBlue)
+            Button("Privacy Policy") {
+                if let url = URL(string: "https://sites.google.com/view/aamirsohail/privacy-policy") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.loomAccentBlue)
 
             Spacer()
 
